@@ -22,6 +22,14 @@ To build and run the application, follow these steps:
 
     Replace `<username>` with your desired username (e.g., `alice`).
 
+## Commands
+
+-   **`twt user create <username>`**: Creates a new user.
+-   **`twt post <text>`**: Creates a new post for the currently logged-in user.
+-   **`twt profile <username>`**: Views a user's posts.
+-   **`twt delete <post_id>`**: Deletes your own post.
+-   **`twt show <post_id>`**: Shows a single post with details.
+
 ## Project Structure
 
 -   `cmd/`: Contains the command-line interface commands.
@@ -29,4 +37,3 @@ To build and run the application, follow these steps:
 -   `internal/models/`: Data models for the application (user, post, social).
 -   `internal/store/`: Data store interfaces and implementations.
 -   `main.go`: The main entry point of the application.
-

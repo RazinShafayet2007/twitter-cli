@@ -1,0 +1,21 @@
+# Binaries
+twitter-cli
+twt
+*.exe
+
+# Database files
+*.db
+*.db-journal
+
+# Go stuff
+vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Config (contains current user session)
+.twitter-cli/

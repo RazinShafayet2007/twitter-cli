@@ -25,10 +25,15 @@ To build and run the application, follow these steps:
 ## Commands
 
 -   **`twt user create <username>`**: Creates a new user.
+-   **`twt login <username>`**: Logs in as an existing user.
+-   **`twt logout`**: Logs out the current user.
 -   **`twt post <text>`**: Creates a new post for the currently logged-in user.
 -   **`twt profile <username>`**: Views a user's posts.
 -   **`twt delete <post_id>`**: Deletes your own post.
 -   **`twt show <post_id>`**: Shows a single post with details.
+-   **`twt follow <username>`**: Follows another user.
+-   **`twt unfollow <username>`**: Unfollows a user.
+-   **`twt feed`**: Views your personalized feed (posts from followed users and your own posts).
 
 ## Project Structure
 

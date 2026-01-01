@@ -5,6 +5,7 @@ import (
 
 	"github.com/RazinShafayet2007/twitter-cli/internal/config"
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
+	"github.com/RazinShafayet2007/twitter-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +14,12 @@ var userCreateCmd = &cobra.Command{
 	Short: "Create a new user",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		username := args[0]
+		username := validation.SanitizeUsername(args[0])
+
+		// Validate username
+		if err := validation.ValidateUsername(username); err != nil {
+			return err
+		}
 
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.Create(username)
@@ -31,7 +37,7 @@ var loginCmd = &cobra.Command{
 	Short: "Login as a user",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		username := args[0]
+		username := validation.SanitizeUsername(args[0])
 
 		// Check if user exists
 		userStore := store.NewUserStore(DB)

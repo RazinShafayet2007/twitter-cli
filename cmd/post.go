@@ -6,6 +6,7 @@ import (
 	"github.com/RazinShafayet2007/twitter-cli/internal/config"
 	"github.com/RazinShafayet2007/twitter-cli/internal/display"
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
+	"github.com/RazinShafayet2007/twitter-cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +15,12 @@ var postCmd = &cobra.Command{
 	Short: "Create a new post",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		text := args[0]
+		text := validation.SanitizePostText(args[0])
+
+		// Validate post text
+		if err := validation.ValidatePostText(text); err != nil {
+			return err
+		}
 
 		// Check if logged in
 		username, err := config.GetCurrentUser()
@@ -179,10 +185,37 @@ var retweetCmd = &cobra.Command{
 	},
 }
 
+var searchCmd = &cobra.Command{
+	Use:   "search [query]",
+	Short: "Search posts by text",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		query := args[0]
+
+		postStore := store.NewPostStore(DB)
+		posts, err := postStore.Search(query, 50)
+		if err != nil {
+			return err
+		}
+
+		if len(posts) == 0 {
+			fmt.Printf("No posts found matching '%s'\n", query)
+			return nil
+		}
+
+		fmt.Printf("Found %d post(s) matching '%s':\n\n", len(posts), query)
+		output := display.FormatPosts(posts)
+		fmt.Println(output)
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(postCmd)
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(deletePostCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(retweetCmd)
+	rootCmd.AddCommand(searchCmd)
 }

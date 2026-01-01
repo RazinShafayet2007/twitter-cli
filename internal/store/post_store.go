@@ -324,3 +324,45 @@ func (s *PostStore) GetRetweetCount(postID string) (int, error) {
 
 	return count, nil
 }
+
+// Search searches posts by text
+func (s *PostStore) Search(query string, limit int) ([]PostWithAuthor, error) {
+	sqlQuery := `
+		SELECT 
+			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id,
+			u.username
+		FROM posts p
+		JOIN users u ON p.author_id = u.id
+		WHERE p.text LIKE ?
+		ORDER BY p.created_at DESC
+		LIMIT ?
+	`
+
+	searchTerm := "%" + query + "%"
+
+	rows, err := s.db.Query(sqlQuery, searchTerm, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search posts: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []PostWithAuthor
+	for rows.Next() {
+		var pwa PostWithAuthor
+		err := rows.Scan(
+			&pwa.Post.ID,
+			&pwa.Post.AuthorID,
+			&pwa.Post.Text,
+			&pwa.Post.CreatedAt,
+			&pwa.Post.IsRetweet,
+			&pwa.Post.OriginalPostID,
+			&pwa.Username,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan post: %w", err)
+		}
+		posts = append(posts, pwa)
+	}
+
+	return posts, nil
+}

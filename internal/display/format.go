@@ -6,6 +6,14 @@ import (
 	"time"
 
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
+	"github.com/fatih/color"
+)
+
+var (
+	cyan   = color.New(color.FgCyan).SprintFunc()
+	green  = color.New(color.FgGreen).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
+	gray   = color.New(color.FgHiBlack).SprintFunc()
 )
 
 // FormatTimeAgo formats a Unix timestamp as "2m ago", "1h ago", etc.
@@ -31,19 +39,22 @@ func FormatTimeAgo(timestamp int64) string {
 	return t.Format("Jan 2, 2006")
 }
 
-// FormatPost formats a single post for display
+// FormatPost formats a single post for display with colors
 func FormatPost(pwa store.PostWithAuthor) string {
 	timeAgo := FormatTimeAgo(pwa.Post.CreatedAt)
 
 	var lines []string
 
-	// First line: ID, username, time
-	header := fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo)
+	// First line: ID (gray), username (cyan), time (yellow)
+	header := fmt.Sprintf("%s  %s  %s",
+		gray(pwa.Post.ID),
+		cyan("@"+pwa.Username),
+		yellow(timeAgo))
 
 	// If it's a retweet, show that
 	if pwa.Post.IsRetweet {
 		lines = append(lines, header)
-		lines = append(lines, "↻ Retweeted")
+		lines = append(lines, gray("↻ Retweeted"))
 		lines = append(lines, pwa.Post.Text)
 	} else {
 		lines = append(lines, header)
@@ -69,25 +80,30 @@ func FormatPosts(posts []store.PostWithAuthor) string {
 	return strings.Join(output[:len(output)-1], "\n")
 }
 
-// FormatPostWithStats formats a post with engagement statistics
+// / FormatPostWithStats formats a post with engagement statistics
 func FormatPostWithStats(pwa store.PostWithAuthor, likeCount, retweetCount int) string {
 	timeAgo := FormatTimeAgo(pwa.Post.CreatedAt)
 
 	var lines []string
 
-	// Header
-	lines = append(lines, fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo))
+	// Header with colors
+	lines = append(lines, fmt.Sprintf("%s  %s  %s",
+		gray(pwa.Post.ID),
+		cyan("@"+pwa.Username),
+		yellow(timeAgo)))
 
 	// Retweet indicator
 	if pwa.Post.IsRetweet {
-		lines = append(lines, "↻ Retweeted")
+		lines = append(lines, gray("↻ Retweeted"))
 	}
 
 	// Post text
 	lines = append(lines, pwa.Post.Text)
 
-	// Engagement stats
-	stats := fmt.Sprintf("❤ %d  ↻ %d", likeCount, retweetCount)
+	// Engagement stats with colors
+	stats := fmt.Sprintf("%s %d  %s %d",
+		green("❤"), likeCount,
+		cyan("↻"), retweetCount)
 	lines = append(lines, stats)
 
 	return strings.Join(lines, "\n")

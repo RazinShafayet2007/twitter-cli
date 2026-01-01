@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 INSTALL_DIR="$HOME/.twitter-cli/bin"
 CONFIG_DIR="$HOME/.twitter-cli"
 BINARY_NAME="twt"
-REPO="YOUR_USERNAME/twitter-cli"
+REPO="RazinShafayet2007/twitter-cli"
 VERSION="${VERSION:-latest}"
 
 echo -e "${GREEN}Twitter CLI Installer${NC}"

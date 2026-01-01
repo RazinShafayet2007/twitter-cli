@@ -38,10 +38,17 @@ func FormatPost(pwa store.PostWithAuthor) string {
 	var lines []string
 
 	// First line: ID, username, time
-	lines = append(lines, fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo))
+	header := fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo)
 
-	// Second line: text content
-	lines = append(lines, pwa.Post.Text)
+	// If it's a retweet, show that
+	if pwa.Post.IsRetweet {
+		lines = append(lines, header)
+		lines = append(lines, "↻ Retweeted")
+		lines = append(lines, pwa.Post.Text)
+	} else {
+		lines = append(lines, header)
+		lines = append(lines, pwa.Post.Text)
+	}
 
 	return strings.Join(lines, "\n")
 }
@@ -60,4 +67,28 @@ func FormatPosts(posts []store.PostWithAuthor) string {
 
 	// Remove trailing empty line
 	return strings.Join(output[:len(output)-1], "\n")
+}
+
+// FormatPostWithStats formats a post with engagement statistics
+func FormatPostWithStats(pwa store.PostWithAuthor, likeCount, retweetCount int) string {
+	timeAgo := FormatTimeAgo(pwa.Post.CreatedAt)
+
+	var lines []string
+
+	// Header
+	lines = append(lines, fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo))
+
+	// Retweet indicator
+	if pwa.Post.IsRetweet {
+		lines = append(lines, "↻ Retweeted")
+	}
+
+	// Post text
+	lines = append(lines, pwa.Post.Text)
+
+	// Engagement stats
+	stats := fmt.Sprintf("❤ %d  ↻ %d", likeCount, retweetCount)
+	lines = append(lines, stats)
+
+	return strings.Join(lines, "\n")
 }

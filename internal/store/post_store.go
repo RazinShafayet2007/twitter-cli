@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -244,4 +245,82 @@ func (s *PostStore) GetFeed(userID string, limit, offset int) ([]PostWithAuthor,
 	}
 
 	return posts, nil
+}
+
+// Retweet creates a retweet of an existing post
+func (s *PostStore) Retweet(userID, originalPostID string) (*models.Post, error) {
+	// Verify original post exists
+	originalPost, err := s.GetByID(originalPostID)
+	if err != nil {
+		return nil, fmt.Errorf("original post not found")
+	}
+
+	// Check if user already retweeted this post
+	hasRetweeted, err := s.HasRetweeted(userID, originalPostID)
+	if err != nil {
+		return nil, err
+	}
+	if hasRetweeted {
+		return nil, errors.New("already retweeted this post")
+	}
+
+	// Can't retweet your own post
+	if originalPost.AuthorID == userID {
+		return nil, errors.New("cannot retweet your own post")
+	}
+
+	id := ulid.Make().String()
+	now := time.Now().Unix()
+
+	query := `
+		INSERT INTO posts (id, author_id, text, created_at, is_retweet, original_post_id)
+		VALUES (?, ?, ?, ?, 1, ?)
+	`
+
+	// Retweet uses the original post's text
+	_, err = s.db.Exec(query, id, userID, originalPost.Text, now, originalPostID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create retweet: %w", err)
+	}
+
+	return &models.Post{
+		ID:             id,
+		AuthorID:       userID,
+		Text:           originalPost.Text,
+		CreatedAt:      now,
+		IsRetweet:      true,
+		OriginalPostID: &originalPostID,
+	}, nil
+}
+
+// HasRetweeted checks if a user has retweeted a post
+func (s *PostStore) HasRetweeted(userID, originalPostID string) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM posts
+		WHERE author_id = ? AND original_post_id = ? AND is_retweet = 1
+	`
+
+	var count int
+	err := s.db.QueryRow(query, userID, originalPostID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check retweet status: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// GetRetweetCount returns the number of retweets for a post
+func (s *PostStore) GetRetweetCount(postID string) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM posts
+		WHERE original_post_id = ? AND is_retweet = 1
+	`
+
+	var count int
+	err := s.db.QueryRow(query, postID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get retweet count: %w", err)
+	}
+
+	return count, nil
 }

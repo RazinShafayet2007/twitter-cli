@@ -110,6 +110,7 @@ var showCmd = &cobra.Command{
 
 		postStore := store.NewPostStore(DB)
 		userStore := store.NewUserStore(DB)
+		socialStore := store.NewSocialStore(DB)
 
 		// Get post
 		post, err := postStore.GetByID(postID)
@@ -123,14 +124,57 @@ var showCmd = &cobra.Command{
 			return err
 		}
 
+		// Get engagement stats
+		likeCount, err := socialStore.GetLikeCount(postID)
+		if err != nil {
+			return err
+		}
+
+		retweetCount, err := postStore.GetRetweetCount(postID)
+		if err != nil {
+			return err
+		}
+
 		// Create PostWithAuthor
 		pwa := store.PostWithAuthor{
 			Post:     *post,
 			Username: user.Username,
 		}
 
-		// Display
-		fmt.Println(display.FormatPost(pwa))
+		// Display with stats
+		fmt.Println(display.FormatPostWithStats(pwa, likeCount, retweetCount))
+		return nil
+	},
+}
+
+var retweetCmd = &cobra.Command{
+	Use:   "retweet [post_id]",
+	Short: "Retweet a post",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		postID := args[0]
+
+		// Check if logged in
+		username, err := config.GetCurrentUser()
+		if err != nil {
+			return fmt.Errorf("not logged in. Run: twt login <username>")
+		}
+
+		// Get user ID
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(username)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		// Create retweet
+		postStore := store.NewPostStore(DB)
+		retweet, err := postStore.Retweet(user.ID, postID)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Retweeted: %s\n", retweet.ID)
 		return nil
 	},
 }
@@ -140,4 +184,5 @@ func init() {
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(deletePostCmd)
 	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(retweetCmd)
 }

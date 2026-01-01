@@ -195,3 +195,118 @@ func (s *SocialStore) GetFollowCounts(userID string) (following int, followers i
 
 	return following, followers, nil
 }
+
+// Like adds a like to a post
+func (s *SocialStore) Like(userID, postID string) error {
+	// Check if already liked
+	exists, err := s.HasLiked(userID, postID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("already liked this post")
+	}
+
+	now := time.Now().Unix()
+	query := `
+		INSERT INTO likes (user_id, post_id, created_at)
+		VALUES (?, ?, ?)
+	`
+
+	_, err = s.db.Exec(query, userID, postID, now)
+	if err != nil {
+		// Check if post exists
+		if err.Error() == "FOREIGN KEY constraint failed" {
+			return errors.New("post not found")
+		}
+		return fmt.Errorf("failed to like post: %w", err)
+	}
+
+	return nil
+}
+
+// Unlike removes a like from a post
+func (s *SocialStore) Unlike(userID, postID string) error {
+	query := `
+		DELETE FROM likes
+		WHERE user_id = ? AND post_id = ?
+	`
+
+	result, err := s.db.Exec(query, userID, postID)
+	if err != nil {
+		return fmt.Errorf("failed to unlike post: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return errors.New("post not liked")
+	}
+
+	return nil
+}
+
+// HasLiked checks if a user has liked a post
+func (s *SocialStore) HasLiked(userID, postID string) (bool, error) {
+	query := `
+		SELECT COUNT(*) FROM likes
+		WHERE user_id = ? AND post_id = ?
+	`
+
+	var count int
+	err := s.db.QueryRow(query, userID, postID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check like status: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// GetLikes returns list of users who liked a post
+func (s *SocialStore) GetLikes(postID string) ([]models.User, error) {
+	query := `
+		SELECT u.id, u.username, u.created_at
+		FROM users u
+		JOIN likes l ON u.id = l.user_id
+		WHERE l.post_id = ?
+		ORDER BY l.created_at DESC
+	`
+
+	rows, err := s.db.Query(query, postID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get likes: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		err := rows.Scan(&user.ID, &user.Username, &user.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating users: %w", err)
+	}
+
+	return users, nil
+}
+
+// GetLikeCount returns the number of likes for a post
+func (s *SocialStore) GetLikeCount(postID string) (int, error) {
+	query := `SELECT COUNT(*) FROM likes WHERE post_id = ?`
+
+	var count int
+	err := s.db.QueryRow(query, postID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get like count: %w", err)
+	}
+
+	return count, nil
+}

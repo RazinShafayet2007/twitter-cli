@@ -164,9 +164,101 @@ var followersCmd = &cobra.Command{
 	},
 }
 
+var likeCmd = &cobra.Command{
+	Use:   "like [post_id]",
+	Short: "Like a post",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		postID := args[0]
+
+		// Check if logged in
+		username, err := config.GetCurrentUser()
+		if err != nil {
+			return fmt.Errorf("not logged in. Run: twt login <username>")
+		}
+
+		// Get user ID
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(username)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		// Like the post
+		socialStore := store.NewSocialStore(DB)
+		if err := socialStore.Like(user.ID, postID); err != nil {
+			return err
+		}
+
+		fmt.Println("Liked")
+		return nil
+	},
+}
+
+var unlikeCmd = &cobra.Command{
+	Use:   "unlike [post_id]",
+	Short: "Unlike a post",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		postID := args[0]
+
+		// Check if logged in
+		username, err := config.GetCurrentUser()
+		if err != nil {
+			return fmt.Errorf("not logged in. Run: twt login <username>")
+		}
+
+		// Get user ID
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(username)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		// Unlike the post
+		socialStore := store.NewSocialStore(DB)
+		if err := socialStore.Unlike(user.ID, postID); err != nil {
+			return err
+		}
+
+		fmt.Println("Unliked")
+		return nil
+	},
+}
+
+var likesCmd = &cobra.Command{
+	Use:   "likes [post_id]",
+	Short: "Show who liked a post",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		postID := args[0]
+
+		socialStore := store.NewSocialStore(DB)
+		users, err := socialStore.GetLikes(postID)
+		if err != nil {
+			return err
+		}
+
+		if len(users) == 0 {
+			fmt.Println("No likes yet")
+			return nil
+		}
+
+		fmt.Printf("Liked by %d user(s):\n", len(users))
+		for _, user := range users {
+			fmt.Printf("  @%s\n", user.Username)
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(followCmd)
 	rootCmd.AddCommand(unfollowCmd)
 	rootCmd.AddCommand(followingCmd)
 	rootCmd.AddCommand(followersCmd)
+	rootCmd.AddCommand(likeCmd)
+	rootCmd.AddCommand(unlikeCmd)
+	rootCmd.AddCommand(likesCmd)
 }

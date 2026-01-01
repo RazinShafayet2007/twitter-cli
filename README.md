@@ -14,26 +14,84 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 
 ## Installation
 
-### Prerequisites
+### Quick Install (Recommended)
 
-- Go 1.21 or higher
-- SQLite3
+**Linux & macOS:**
 
-### Build from source
 ```bash
-git clone https://github.com/YOUR_USERNAME/twitter-cli.git
-cd twitter-cli
-go build -o twt
+curl -fsSL https://raw.githubusercontent.com/RazinShafayet2007/twitter-cli/main/scripts/install.sh | bash
 ```
 
-### Install globally (optional)
+**What this does:**
+
+- Downloads the correct binary for your system
+- Installs to `~/.twitter-cli/bin/`
+- Adds to your PATH automatically
+
+### Manual Installation
+
+**Download pre-built binaries:**
+
+Visit the [releases page](https://github.com/RazinShafayet2007/twitter-cli/releases) and download for your platform:
+
+- `twt-linux-amd64` - Linux (64-bit)
+- `twt-linux-arm64` - Linux (ARM64)
+- `twt-darwin-amd64` - macOS (Intel)
+- `twt-darwin-arm64` - macOS (Apple Silicon)
+- `twt-windows-amd64.exe` - Windows (64-bit)
+
 ```bash
+# Example for Linux:
+wget https://github.com/RazinShafayet2007/twitter-cli/releases/latest/download/twt-linux-amd64
+chmod +x twt-linux-amd64
+sudo mv twt-linux-amd64 /usr/local/bin/twt
+```
+
+### Build from Source
+
+Requires Go 1.21+:
+
+```bash
+git clone https://github.com/RazinShafayet2007/twitter-cli.git
+cd twitter-cli
 go install
 ```
 
-Or copy the binary:
+### Verify Installation
+
 ```bash
-sudo cp twt /usr/local/bin/
+twt --version
+twt --help
+```
+
+## Uninstallation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RazinShafayet2007/twitter-cli/main/scripts/uninstall.sh | bash
+```
+
+Or manually:
+
+```bash
+rm -rf ~/.twitter-cli
+# Remove the PATH line from your shell RC file
+```
+
+## Configuration
+
+Twitter CLI stores data in `~/.twitter-cli/`:
+
+```
+~/.twitter-cli/
+├── bin/          # Binary location
+├── data.db       # SQLite database
+└── config.json   # Current session
+```
+
+To use a different database:
+
+```bash
+twt --db /path/to/custom.db <command>
 ```
 
 ## Quick Start
@@ -209,13 +267,19 @@ CREATE TABLE likes (
 
 ## Configuration
 
-Database and config files are stored in `~/.twitter-cli/`:
-- `data.db` - SQLite database
-- `config.json` - Current user session
+Twitter CLI stores data in `~/.twitter-cli/`:
 
-To use a different database location:
+```
+~/.twitter-cli/
+├── bin/          # Binary location
+├── data.db       # SQLite database
+└── config.json   # Current session
+```
+
+To use a different database:
+
 ```bash
-twt --db /path/to/database.db <command>
+twt --db /path/to/custom.db <command>
 ```
 
 ## Development

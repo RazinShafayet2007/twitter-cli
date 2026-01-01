@@ -13,10 +13,21 @@ var (
 	DB     *sql.DB
 )
 
+var (
+	version   string
+	buildTime string
+)
+
+func SetVersionInfo(v, bt string) {
+	version = v
+	buildTime = bt
+}
+
 var rootCmd = &cobra.Command{
-	Use:   "twt",
-	Short: "A Twitter-like CLI application",
-	Long:  `Twitter CLI - A command-line Twitter clone for learning system design`,
+	Use:     "twt",
+	Short:   "A Twitter-like CLI application",
+	Long:    `Twitter CLI - A command-line Twitter clone for learning system design`,
+	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Initialize database for all commands
 		var err error
@@ -35,11 +46,21 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version information",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("Twitter CLI %s\n", version)
+		fmt.Printf("Built: %s\n", buildTime)
+	},
+}
+
 func Execute() error {
 	return rootCmd.Execute()
 }
 
 func init() {
+	rootCmd.AddCommand(versionCmd)
 	// Default database path
 	defaultPath := db.GetDefaultDBPath()
 

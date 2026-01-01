@@ -9,6 +9,7 @@ twt
 
 # Go stuff
 vendor/
+/dist/
 
 # IDE
 .vscode/

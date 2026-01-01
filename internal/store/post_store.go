@@ -186,3 +186,62 @@ func (s *PostStore) Delete(postID, authorID string) error {
 
 	return nil
 }
+
+// GetFeed returns posts for a user's feed (posts from followed users + own posts)
+func (s *PostStore) GetFeed(userID string, limit, offset int) ([]PostWithAuthor, error) {
+	// This query gets:
+	// 1. Posts from users that userID follows
+	// 2. Posts from userID themselves
+	// Ordered by creation time (newest first)
+
+	query := `
+		SELECT 
+			p.id, 
+			p.author_id, 
+			p.text, 
+			p.created_at, 
+			p.is_retweet, 
+			p.original_post_id,
+			u.username
+		FROM posts p
+		JOIN users u ON p.author_id = u.id
+		WHERE p.author_id IN (
+			SELECT followee_id 
+			FROM follows 
+			WHERE follower_id = ?
+		)
+		OR p.author_id = ?
+		ORDER BY p.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := s.db.Query(query, userID, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query feed: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []PostWithAuthor
+	for rows.Next() {
+		var pwa PostWithAuthor
+		err := rows.Scan(
+			&pwa.Post.ID,
+			&pwa.Post.AuthorID,
+			&pwa.Post.Text,
+			&pwa.Post.CreatedAt,
+			&pwa.Post.IsRetweet,
+			&pwa.Post.OriginalPostID,
+			&pwa.Username,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan post: %w", err)
+		}
+		posts = append(posts, pwa)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating posts: %w", err)
+	}
+
+	return posts, nil
+}

@@ -128,6 +128,37 @@ else
 fi
 
 echo ""
+
+# Install sqlite3 if not already installed
+if ! command -v sqlite3 &> /dev/null
+then
+    echo -e "${YELLOW}sqlite3 not found. Installing...${NC}"
+    if [ "$OS" = "linux" ]; then
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y sqlite3
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y sqlite3
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y sqlite3
+        else
+            echo -e "${RED}Error: No suitable package manager found to install sqlite3.${NC}"
+            exit 1
+        fi
+    elif [ "$OS" = "darwin" ]; then
+        if command -v brew &> /dev/null; then
+            brew install sqlite3
+        else
+            echo -e "${RED}Error: Homebrew not found. Please install Homebrew to install sqlite3.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}Error: Unsupported OS for automatic sqlite3 installation.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓${NC} sqlite3 installed."
+    echo ""
+fi
+
 echo -e "${GREEN}Installation complete!${NC}"
 echo ""
 echo "Try it out:"

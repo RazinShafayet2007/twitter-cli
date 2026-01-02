@@ -253,6 +253,73 @@ var likesCmd = &cobra.Command{
 	},
 }
 
+var statsCmd = &cobra.Command{
+	Use:   "stats [username]",
+	Short: "Show user statistics",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var targetUsername string
+
+		if len(args) == 0 {
+			// Show current user's stats
+			username, err := config.GetCurrentUser()
+			if err != nil {
+				return fmt.Errorf("not logged in. Run: twt login <username>")
+			}
+			targetUsername = username
+		} else {
+			targetUsername = args[0]
+		}
+
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(targetUsername)
+		if err != nil {
+			return fmt.Errorf("user @%s not found", targetUsername)
+		}
+
+		// Get post count
+		postStore := store.NewPostStore(DB)
+		posts, err := postStore.GetByUsername(targetUsername, 10000)
+		if err != nil {
+			return err
+		}
+
+		// Get follow counts
+		socialStore := store.NewSocialStore(DB)
+		following, followers, err := socialStore.GetFollowCounts(user.ID)
+		if err != nil {
+			return err
+		}
+
+		// Get message stats
+		sentQuery := `SELECT COUNT(*) FROM messages WHERE sender_id = ?`
+		receivedQuery := `SELECT COUNT(*) FROM messages WHERE receiver_id = ?`
+
+		var sentCount, receivedCount int
+
+		err = DB.QueryRow(sentQuery, user.ID).Scan(&sentCount)
+		if err != nil {
+			return fmt.Errorf("failed to get sent message count: %w", err)
+		}
+
+		err = DB.QueryRow(receivedQuery, user.ID).Scan(&receivedCount)
+		if err != nil {
+			return fmt.Errorf("failed to get received message count: %w", err)
+		}
+
+		// Display stats
+		fmt.Printf("@%s\n", targetUsername)
+		fmt.Println("─────────────────────────")
+		fmt.Printf("Posts:             %d\n", len(posts))
+		fmt.Printf("Following:         %d\n", following)
+		fmt.Printf("Followers:         %d\n", followers)
+		fmt.Printf("Messages sent:     %d\n", sentCount)
+		fmt.Printf("Messages received: %d\n", receivedCount)
+
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(followCmd)
 	rootCmd.AddCommand(unfollowCmd)
@@ -261,4 +328,5 @@ func init() {
 	rootCmd.AddCommand(likeCmd)
 	rootCmd.AddCommand(unlikeCmd)
 	rootCmd.AddCommand(likesCmd)
+	rootCmd.AddCommand(statsCmd)
 }

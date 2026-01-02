@@ -38,6 +38,15 @@ func (s *MessageStore) Send(senderID, receiverID, text string) (*models.Message,
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
+	// Check if sender is blocked by receiver
+	blocked, err := s.IsBlocked(receiverID, senderID)
+	if err != nil {
+		return nil, err
+	}
+	if blocked {
+		return nil, fmt.Errorf("you cannot send messages to this user")
+	}
+
 	return &models.Message{
 		ID:         id,
 		SenderID:   senderID,
@@ -275,4 +284,63 @@ func (s *MessageStore) DeleteMessage(messageID, senderID string) error {
 	}
 
 	return nil
+}
+
+func (s *MessageStore) SearchMessages(userID, query string) ([]models.MessageWithUser, error) {
+	sqlQuery := `
+		SELECT 
+			m.id, m.sender_id, m.receiver_id, m.text, m.created_at, m.read,
+			sender.username as sender_name,
+			receiver.username as receiver_name
+		FROM messages m
+		JOIN users sender ON m.sender_id = sender.id
+		JOIN users receiver ON m.receiver_id = receiver.id
+		WHERE (m.sender_id = ? OR m.receiver_id = ?)
+		  AND m.text LIKE ?
+		ORDER BY m.created_at DESC
+		LIMIT 50
+	`
+
+	searchTerm := "%" + query + "%"
+
+	rows, err := s.db.Query(sqlQuery, userID, userID, searchTerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []models.MessageWithUser
+	for rows.Next() {
+		var m models.MessageWithUser
+		var readInt int
+		err := rows.Scan(
+			&m.Message.ID,
+			&m.Message.SenderID,
+			&m.Message.ReceiverID,
+			&m.Message.Text,
+			&m.Message.CreatedAt,
+			&readInt,
+			&m.SenderName,
+			&m.ReceiverName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan message: %w", err)
+		}
+		m.Message.Read = readInt == 1
+		messages = append(messages, m)
+	}
+
+	return messages, nil
+}
+
+func (s *MessageStore) IsBlocked(blockerID, blockedID string) (bool, error) {
+	query := `SELECT COUNT(*) FROM blocks WHERE blocker_id = ? AND blocked_id = ?`
+
+	var count int
+	err := s.db.QueryRow(query, blockerID, blockedID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check block status: %w", err)
+	}
+
+	return count > 0, nil
 }

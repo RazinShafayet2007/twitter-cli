@@ -269,6 +269,76 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+var messageDeleteCmd = &cobra.Command{
+	Use:   "delete [message_id]",
+	Short: "Delete a message you sent",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		messageID := args[0]
+
+		username, err := config.GetCurrentUser()
+		if err != nil {
+			return fmt.Errorf("not logged in")
+		}
+
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(username)
+		if err != nil {
+			return err
+		}
+
+		messageStore := store.NewMessageStore(DB)
+		if err := messageStore.DeleteMessage(messageID, user.ID); err != nil {
+			return err
+		}
+
+		fmt.Println("Message deleted")
+		return nil
+	},
+}
+
+var messageSearchCmd = &cobra.Command{
+	Use:   "search [query]",
+	Short: "Search messages by text",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		query := args[0]
+
+		username, err := config.GetCurrentUser()
+		if err != nil {
+			return fmt.Errorf("not logged in")
+		}
+
+		userStore := store.NewUserStore(DB)
+		user, err := userStore.GetByUsername(username)
+		if err != nil {
+			return err
+		}
+
+		messageStore := store.NewMessageStore(DB)
+		messages, err := messageStore.SearchMessages(user.ID, query)
+		if err != nil {
+			return err
+		}
+
+		if len(messages) == 0 {
+			fmt.Printf("No messages found matching '%s'\n", query)
+			return nil
+		}
+
+		fmt.Printf("Found %d message(s) matching '%s':\n\n", len(messages), query)
+
+		for _, m := range messages {
+			timeAgo := display.FormatTimeAgo(m.Message.CreatedAt)
+			fmt.Printf("[@%s → @%s] (%s)\n", m.SenderName, m.ReceiverName, timeAgo)
+			fmt.Printf("%s\n", m.Message.Text)
+			fmt.Println()
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	// Add flags
 	messageInboxCmd.Flags().Int("limit", 20, "Number of messages to show")
@@ -280,6 +350,8 @@ func init() {
 	messageCmd.AddCommand(messageConversationCmd)
 	messageCmd.AddCommand(messageListCmd)
 	messageCmd.AddCommand(messageUnreadCmd)
+	messageCmd.AddCommand(messageDeleteCmd)
+	messageCmd.AddCommand(messageSearchCmd)
 
 	rootCmd.AddCommand(messageCmd)
 }

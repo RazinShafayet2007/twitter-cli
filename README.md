@@ -13,6 +13,7 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 - ✅ Engagement statistics
 - ✅ Direct messaging (send, inbox, conversation, unread, delete, search)
 - ✅ User blocking (block, unblock, list blocked)
+- ✅ Notifications (list, read, clear unread count)
 
 ## Installation
 
@@ -201,6 +202,21 @@ twt unblock <username>
 twt blocked
 ```
 
+### Notifications
+```bash
+# View your notifications
+twt notifications
+
+# Mark all notifications as read
+twt notifications read
+
+# Clear all read notifications
+twt notifications clear
+
+# View only unread notifications
+twt notifications --unread
+```
+
 ### Feed
 ```bash
 # View your personalized feed
@@ -238,6 +254,7 @@ twt retweet <post_id>
 - **Likes**: Many-to-many relationship between users and posts
 - **Messages**: Direct messages between users
 - **Blocks**: Records of one user blocking another
+- **Notifications**: System notifications for user interactions
 
 ### Technology Stack
 
@@ -256,7 +273,8 @@ twitter-cli/
 │   ├── feed.go            # Feed command
 │   ├── social.go          # Social commands
 │   ├── message.go         # Direct messaging commands
-│   └── block.go           # User blocking commands
+│   ├── block.go           # User blocking commands
+│   └── notifications.go   # Notifications commands
 ├── internal/
 │   ├── db/                # Database setup
 │   ├── models/            # Data structures
@@ -270,7 +288,8 @@ twitter-cli/
 │   ├── uninstall.sh
 │   ├── build-release.sh
 │   ├── migrate-messages.sh
-│   └── migrate-blocks.sh
+│   ├── migrate-blocks.sh
+│   └── migrate-notifications.sh
 └── main.go                # Entry point
 ```
 
@@ -331,6 +350,19 @@ CREATE TABLE blocks (
     FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Notifications (Assuming structure based on migrate-notifications.sh)
+CREATE TABLE notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,       -- The user who receives the notification
+    actor_id TEXT NOT NULL,      -- The user who performed the action (e.g., liked, followed)
+    type TEXT NOT NULL,          -- Type of notification (e.g., 'like', 'retweet', 'follow')
+    target_id TEXT,              -- ID of the target entity (e.g., post ID, message ID)
+    created_at INTEGER NOT NULL,
+    read INTEGER DEFAULT 0,      -- 0 for unread, 1 for read
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE CASCADE
+);
 ```
 
 ## Configuration
@@ -375,7 +407,7 @@ This project demonstrates:
 - ✅ **Relational database design** with proper foreign keys and constraints
 - ✅ **Complex SQL queries** with JOINs, subqueries, and aggregations
 - ✅ **Many-to-many relationships** (follows, likes, blocks)
-- ✅ **Self-referential relationships** (retweets, direct messages)
+- ✅ **Self-referential relationships** (retweets, direct messages, notifications)
 - ✅ **Feed generation algorithms** (combining multiple data sources)
 - ✅ **CLI application architecture** with Cobra
 - ✅ **State management** (session persistence)
@@ -385,6 +417,7 @@ This project demonstrates:
 - ✅ **Direct messaging implementation**
 - ✅ **User blocking functionality**
 - ✅ **Message search capabilities**
+- ✅ **Notification system** (real-time user feedback)
 
 ## Limitations & Future Improvements
 
@@ -393,7 +426,6 @@ Current limitations:
 - No comments/replies (threads)
 - No media uploads
 - No hashtags or mentions
-- No notifications
 - Single-user local system (no server)
 
 Potential enhancements:

@@ -11,6 +11,8 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 - ✅ Likes and retweets
 - ✅ User profiles
 - ✅ Engagement statistics
+- ✅ Direct messaging (send, inbox, conversation, unread, delete, search)
+- ✅ User blocking (block, unblock, list blocked)
 
 ## Installation
 
@@ -166,6 +168,39 @@ twt followers [username]
 twt stats [username]
 ```
 
+### Direct Messaging
+```bash
+# Send a direct message
+twt message send <username> "Your message here"
+
+# View your inbox
+twt message inbox
+
+# View a conversation with a specific user
+twt message conversation <username>
+
+# Check your unread message count
+twt message unread
+
+# Delete a message (by ID)
+twt message delete <message_id>
+
+# Search messages
+twt message search <query>
+```
+
+### User Blocking
+```bash
+# Block a user
+twt block <username>
+
+# Unblock a user
+twt unblock <username>
+
+# List users you have blocked
+twt blocked
+```
+
 ### Feed
 ```bash
 # View your personalized feed
@@ -201,6 +236,8 @@ twt retweet <post_id>
 - **Posts**: Text posts with timestamps, supports retweets
 - **Follows**: Many-to-many relationship between users
 - **Likes**: Many-to-many relationship between users and posts
+- **Messages**: Direct messages between users
+- **Blocks**: Records of one user blocking another
 
 ### Technology Stack
 
@@ -217,14 +254,23 @@ twitter-cli/
 │   ├── user.go            # User commands
 │   ├── post.go            # Post commands
 │   ├── feed.go            # Feed command
-│   └── social.go          # Social commands
+│   ├── social.go          # Social commands
+│   ├── message.go         # Direct messaging commands
+│   └── block.go           # User blocking commands
 ├── internal/
 │   ├── db/                # Database setup
 │   ├── models/            # Data structures
 │   ├── store/             # Database operations
 │   ├── config/            # Configuration management
 │   ├── display/           # Output formatting
-│   └── validation/        # Input validation
+│   ├── validation/        # Input validation
+│   └── errors/            # Custom error types
+├── scripts/                # Utility scripts (install, build, migrate)
+│   ├── install.sh
+│   ├── uninstall.sh
+│   ├── build-release.sh
+│   ├── migrate-messages.sh
+│   └── migrate-blocks.sh
 └── main.go                # Entry point
 ```
 
@@ -262,6 +308,28 @@ CREATE TABLE likes (
     post_id TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     PRIMARY KEY (user_id, post_id)
+);
+
+-- Messages (Assuming structure based on context)
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    sender_id TEXT NOT NULL,
+    receiver_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    read INTEGER DEFAULT 0, -- 0 for unread, 1 for read
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Blocks (Assuming structure based on migrate-blocks.sh)
+CREATE TABLE blocks (
+    blocker_id TEXT NOT NULL,
+    blocked_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (blocker_id, blocked_id),
+    FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
@@ -306,27 +374,30 @@ This project demonstrates:
 
 - ✅ **Relational database design** with proper foreign keys and constraints
 - ✅ **Complex SQL queries** with JOINs, subqueries, and aggregations
-- ✅ **Many-to-many relationships** (follows, likes)
-- ✅ **Self-referential relationships** (retweets)
+- ✅ **Many-to-many relationships** (follows, likes, blocks)
+- ✅ **Self-referential relationships** (retweets, direct messages)
 - ✅ **Feed generation algorithms** (combining multiple data sources)
 - ✅ **CLI application architecture** with Cobra
 - ✅ **State management** (session persistence)
 - ✅ **Input validation and sanitization**
 - ✅ **Error handling patterns** in Go
 - ✅ **Test-driven development** basics
+- ✅ **Direct messaging implementation**
+- ✅ **User blocking functionality**
+- ✅ **Message search capabilities**
 
 ## Limitations & Future Improvements
 
 Current limitations:
+
 - No comments/replies (threads)
-- No direct messages
 - No media uploads
 - No hashtags or mentions
 - No notifications
 - Single-user local system (no server)
 
 Potential enhancements:
-- [ ] Search functionality
+
 - [ ] Hashtag support
 - [ ] User mentions (@username)
 - [ ] Threads/replies

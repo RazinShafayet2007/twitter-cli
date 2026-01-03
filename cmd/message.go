@@ -24,7 +24,6 @@ var messageSendCmd = &cobra.Command{
 		receiverUsername := args[0]
 		text := strings.Join(args[1:], " ")
 
-		// Check if logged in
 		senderUsername, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
@@ -32,28 +31,32 @@ var messageSendCmd = &cobra.Command{
 
 		userStore := store.NewUserStore(DB)
 
-		// Get sender
 		sender, err := userStore.GetByUsername(senderUsername)
 		if err != nil {
 			return fmt.Errorf("failed to get sender: %w", err)
 		}
 
-		// Get receiver
 		receiver, err := userStore.GetByUsername(receiverUsername)
 		if err != nil {
 			return fmt.Errorf("user @%s not found", receiverUsername)
 		}
 
-		// Can't message yourself
 		if sender.ID == receiver.ID {
 			return fmt.Errorf("you cannot message yourself")
 		}
 
 		// Send message
 		messageStore := store.NewMessageStore(DB)
-		_, err = messageStore.Send(sender.ID, receiver.ID, text)
+		message, err := messageStore.Send(sender.ID, receiver.ID, text)
 		if err != nil {
 			return err
+		}
+
+		// Create notification
+		notifStore := store.NewNotificationStore(DB)
+		messageID := message.ID
+		if err := notifStore.Create(receiver.ID, sender.ID, "message", &messageID); err != nil {
+			fmt.Printf("Warning: failed to create notification: %v\n", err)
 		}
 
 		fmt.Printf("Message sent to @%s\n", receiverUsername)

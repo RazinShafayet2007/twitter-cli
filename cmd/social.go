@@ -15,7 +15,6 @@ var followCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		targetUsername := args[0]
 
-		// Check if logged in
 		currentUsername, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
@@ -23,13 +22,11 @@ var followCmd = &cobra.Command{
 
 		userStore := store.NewUserStore(DB)
 
-		// Get current user ID
 		currentUser, err := userStore.GetByUsername(currentUsername)
 		if err != nil {
 			return fmt.Errorf("failed to get current user: %w", err)
 		}
 
-		// Get target user ID
 		targetUser, err := userStore.GetByUsername(targetUsername)
 		if err != nil {
 			return fmt.Errorf("user @%s not found", targetUsername)
@@ -40,6 +37,12 @@ var followCmd = &cobra.Command{
 		err = socialStore.Follow(currentUser.ID, targetUser.ID)
 		if err != nil {
 			return err
+		}
+
+		// Create notification
+		notifStore := store.NewNotificationStore(DB)
+		if err := notifStore.Create(targetUser.ID, currentUser.ID, "follow", nil); err != nil {
+			fmt.Printf("Warning: failed to create notification: %v\n", err)
 		}
 
 		fmt.Printf("Now following @%s\n", targetUsername)
@@ -171,23 +174,35 @@ var likeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		postID := args[0]
 
-		// Check if logged in
 		username, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
 		}
 
-		// Get user ID
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.GetByUsername(username)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
+		// Get post to find author
+		postStore := store.NewPostStore(DB)
+		post, err := postStore.GetByID(postID)
+		if err != nil {
+			return err
+		}
+
 		// Like the post
 		socialStore := store.NewSocialStore(DB)
 		if err := socialStore.Like(user.ID, postID); err != nil {
 			return err
+		}
+
+		// Create notification for post author
+		notifStore := store.NewNotificationStore(DB)
+		if err := notifStore.Create(post.AuthorID, user.ID, "like", &postID); err != nil {
+			// Don't fail if notification fails
+			fmt.Printf("Warning: failed to create notification: %v\n", err)
 		}
 
 		fmt.Println("Liked")

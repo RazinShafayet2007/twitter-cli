@@ -85,14 +85,21 @@ var whoamiCmd = &cobra.Command{
 
 		fmt.Printf("@%s\n", username)
 
-		// Show unread count
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.GetByUsername(username)
 		if err == nil {
+			// Show unread messages
 			messageStore := store.NewMessageStore(DB)
-			unread, err := messageStore.GetUnreadCount(user.ID)
-			if err == nil && unread > 0 {
-				fmt.Printf("\n💬 %d unread message(s)\n", unread)
+			unreadMessages, err := messageStore.GetUnreadCount(user.ID)
+			if err == nil && unreadMessages > 0 {
+				fmt.Printf("💬 %d unread message(s)\n", unreadMessages)
+			}
+
+			// Show unread notifications
+			notifStore := store.NewNotificationStore(DB)
+			unreadNotifs, err := notifStore.GetUnreadCount(user.ID)
+			if err == nil && unreadNotifs > 0 {
+				fmt.Printf("🔔 %d unread notification(s)\n", unreadNotifs)
 			}
 		}
 

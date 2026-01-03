@@ -160,24 +160,34 @@ var retweetCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		postID := args[0]
 
-		// Check if logged in
 		username, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
 		}
 
-		// Get user ID
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.GetByUsername(username)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
-		// Create retweet
+		// Get original post to find author
 		postStore := store.NewPostStore(DB)
+		originalPost, err := postStore.GetByID(postID)
+		if err != nil {
+			return err
+		}
+
+		// Create retweet
 		retweet, err := postStore.Retweet(user.ID, postID)
 		if err != nil {
 			return err
+		}
+
+		// Create notification for original author
+		notifStore := store.NewNotificationStore(DB)
+		if err := notifStore.Create(originalPost.AuthorID, user.ID, "retweet", &postID); err != nil {
+			fmt.Printf("Warning: failed to create notification: %v\n", err)
 		}
 
 		fmt.Printf("Retweeted: %s\n", retweet.ID)

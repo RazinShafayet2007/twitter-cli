@@ -222,6 +222,20 @@ func (s *SocialStore) Like(userID, postID string) error {
 		return fmt.Errorf("failed to like post: %w", err)
 	}
 
+	// Create a notification for the post author
+	postStore := NewPostStore(s.db)
+	post, err := postStore.GetByID(postID)
+	if err != nil {
+		return fmt.Errorf("failed to get post for notification: %w", err)
+	}
+
+	notificationStore := NewNotificationStore(s.db)
+	err = notificationStore.Create(post.AuthorID, userID, "like", &postID)
+	if err != nil {
+		// Log the error but don't block the like action
+		fmt.Printf("Warning: failed to create notification: %v\n", err)
+	}
+
 	return nil
 }
 

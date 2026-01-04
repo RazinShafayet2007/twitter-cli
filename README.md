@@ -14,6 +14,8 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 - ✅ Direct messaging (send, inbox, conversation, unread, delete, search)
 - ✅ User blocking (block, unblock, list blocked)
 - ✅ Notifications (list, read, clear unread count)
+- ✅ Hashtags (search, trending)
+- ✅ User Mentions (parsing, notifications, list mentions)
 
 ## Installation
 
@@ -244,6 +246,21 @@ twt likes <post_id>
 twt retweet <post_id>
 ```
 
+### Hashtags & Mentions
+```bash
+# Posts can include hashtags and mentions
+twt post "Hello @alice check out #golang"
+
+# View posts with a specific hashtag
+twt hashtag golang
+
+# View trending hashtags
+twt trending
+
+# View posts that mention you
+twt mentions
+```
+
 ## Architecture
 
 ### Data Model
@@ -294,6 +311,7 @@ twitter-cli/
 ```
 
 ## Database Schema
+
 ```sql
 -- Users
 CREATE TABLE users (
@@ -329,19 +347,19 @@ CREATE TABLE likes (
     PRIMARY KEY (user_id, post_id)
 );
 
--- Messages (Assuming structure based on context)
+-- Messages
 CREATE TABLE messages (
     id TEXT PRIMARY KEY,
     sender_id TEXT NOT NULL,
     receiver_id TEXT NOT NULL,
     text TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    read INTEGER DEFAULT 0, -- 0 for unread, 1 for read
+    read INTEGER DEFAULT 0,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Blocks (Assuming structure based on migrate-blocks.sh)
+-- Blocks
 CREATE TABLE blocks (
     blocker_id TEXT NOT NULL,
     blocked_id TEXT NOT NULL,
@@ -351,17 +369,43 @@ CREATE TABLE blocks (
     FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Notifications (Assuming structure based on migrate-notifications.sh)
+-- Notifications
 CREATE TABLE notifications (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,       -- The user who receives the notification
-    actor_id TEXT NOT NULL,      -- The user who performed the action (e.g., liked, followed)
-    type TEXT NOT NULL,          -- Type of notification (e.g., 'like', 'retweet', 'follow')
-    target_id TEXT,              -- ID of the target entity (e.g., post ID, message ID)
+    user_id TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    target_id TEXT,
     created_at INTEGER NOT NULL,
-    read INTEGER DEFAULT 0,      -- 0 for unread, 1 for read
+    read INTEGER DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Hashtags
+CREATE TABLE hashtags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tag TEXT UNIQUE NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+-- Post <-> Hashtags join table
+CREATE TABLE post_hashtags (
+    post_id TEXT NOT NULL,
+    hashtag_id INTEGER NOT NULL,
+    PRIMARY KEY (post_id, hashtag_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (hashtag_id) REFERENCES hashtags(id) ON DELETE CASCADE
+);
+
+-- Mentions
+CREATE TABLE mentions (
+    post_id TEXT NOT NULL,
+    mentioned_user_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (post_id, mentioned_user_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (mentioned_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
@@ -418,6 +462,8 @@ This project demonstrates:
 - ✅ **User blocking functionality**
 - ✅ **Message search capabilities**
 - ✅ **Notification system** (real-time user feedback)
+- ✅ **Hashtag support**
+- ✅ **User mentions**
 
 ## Limitations & Future Improvements
 
@@ -425,13 +471,10 @@ Current limitations:
 
 - No comments/replies (threads)
 - No media uploads
-- No hashtags or mentions
 - Single-user local system (no server)
 
 Potential enhancements:
 
-- [ ] Hashtag support
-- [ ] User mentions (@username)
 - [ ] Threads/replies
 - [ ] Export data to JSON
 - [ ] Import from real Twitter
@@ -451,3 +494,4 @@ MIT License - feel free to use for learning purposes.
 Built as a practical exercise in system design and backend development.
 
 Inspired by Twitter's core functionality.
+

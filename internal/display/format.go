@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RazinShafayet2007/twitter-cli/internal/parser"
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
 	"github.com/fatih/color"
 )
@@ -39,26 +40,23 @@ func FormatTimeAgo(timestamp int64) string {
 	return t.Format("Jan 2, 2006")
 }
 
-// FormatPost formats a single post for display with colors
+// / FormatPost formats a single post for display with highlighting
 func FormatPost(pwa store.PostWithAuthor) string {
 	timeAgo := FormatTimeAgo(pwa.Post.CreatedAt)
 
 	var lines []string
 
-	// First line: ID (gray), username (cyan), time (yellow)
-	header := fmt.Sprintf("%s  %s  %s",
-		gray(pwa.Post.ID),
-		cyan("@"+pwa.Username),
-		yellow(timeAgo))
+	// First line: ID, username, time
+	header := fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo)
 
 	// If it's a retweet, show that
 	if pwa.Post.IsRetweet {
 		lines = append(lines, header)
-		lines = append(lines, gray("↻ Retweeted"))
-		lines = append(lines, pwa.Post.Text)
+		lines = append(lines, "↻ Retweeted")
+		lines = append(lines, parser.HighlightText(pwa.Post.Text)) // Highlight hashtags/mentions
 	} else {
 		lines = append(lines, header)
-		lines = append(lines, pwa.Post.Text)
+		lines = append(lines, parser.HighlightText(pwa.Post.Text)) // Highlight hashtags/mentions
 	}
 
 	return strings.Join(lines, "\n")

@@ -87,6 +87,13 @@ var notificationsCmd = &cobra.Command{
 				} else {
 					message = fmt.Sprintf("@%s sent you a message", n.ActorName)
 				}
+			case "mention":
+				if n.TargetText != nil {
+					truncated := truncateText(*n.TargetText, 30)
+					message = fmt.Sprintf("@%s mentioned you in a post: \"%s\"", n.ActorName, truncated)
+				} else {
+					message = fmt.Sprintf("@%s mentioned you in a post", n.ActorName)
+				}
 			default:
 				message = fmt.Sprintf("@%s performed an action", n.ActorName)
 			}

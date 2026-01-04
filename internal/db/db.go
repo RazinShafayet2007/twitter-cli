@@ -37,7 +37,17 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Enable foreign keys (SQLite doesn't enable them by default!)
+	// Set busy timeout
+	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+	}
+
+	// Enable WAL mode for better concurrency
+	if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+
+	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 	}

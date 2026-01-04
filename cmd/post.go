@@ -5,6 +5,7 @@ import (
 
 	"github.com/RazinShafayet2007/twitter-cli/internal/config"
 	"github.com/RazinShafayet2007/twitter-cli/internal/display"
+	"github.com/RazinShafayet2007/twitter-cli/internal/parser"
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
 	"github.com/RazinShafayet2007/twitter-cli/internal/validation"
 	"github.com/spf13/cobra"
@@ -42,7 +43,53 @@ var postCmd = &cobra.Command{
 			return err
 		}
 
+		// Extract and save hashtags
+		hashtags := parser.ExtractHashtags(text)
+		if len(hashtags) > 0 {
+			hashtagStore := store.NewHashtagStore(DB)
+			if err := hashtagStore.LinkPostToHashtags(post.ID, hashtags); err != nil {
+				fmt.Printf("Warning: failed to save hashtags: %v\n", err)
+			}
+		}
+
+		// Extract and save mentions
+		mentionUsernames := parser.ExtractMentions(text)
+		if len(mentionUsernames) > 0 {
+			mentionStore := store.NewMentionStore(DB)
+
+			// Get user IDs for mentioned usernames
+			mentionedUserIDs, err := mentionStore.GetMentionedUsers(mentionUsernames)
+			if err != nil {
+				fmt.Printf("Warning: failed to process mentions: %v\n", err)
+			} else {
+				// Create mention records
+				if err := mentionStore.CreateMentions(post.ID, mentionedUserIDs); err != nil {
+					fmt.Printf("Warning: failed to save mentions: %v\n", err)
+				}
+
+				// Create notifications for mentioned users
+				notifStore := store.NewNotificationStore(DB)
+				for _, mentionedUserID := range mentionedUserIDs {
+					// Don't notify yourself
+					if mentionedUserID != user.ID {
+						postID := post.ID
+						if err := notifStore.Create(mentionedUserID, user.ID, "mention", &postID); err != nil {
+							fmt.Printf("Warning: failed to create mention notification: %v\n", err)
+						}
+					}
+				}
+			}
+		}
+
+		// Show summary
 		fmt.Printf("Posted: %s\n", post.ID)
+		if len(hashtags) > 0 {
+			fmt.Printf("Hashtags: %v\n", hashtags)
+		}
+		if len(mentionUsernames) > 0 {
+			fmt.Printf("Mentions: %v\n", mentionUsernames)
+		}
+
 		return nil
 	},
 }

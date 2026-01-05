@@ -2,13 +2,20 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/RazinShafayet2007/twitter-cli/internal/config"
 	"github.com/RazinShafayet2007/twitter-cli/internal/display"
+	"github.com/RazinShafayet2007/twitter-cli/internal/media"
+	"github.com/RazinShafayet2007/twitter-cli/internal/models"
 	"github.com/RazinShafayet2007/twitter-cli/internal/parser"
 	"github.com/RazinShafayet2007/twitter-cli/internal/store"
 	"github.com/RazinShafayet2007/twitter-cli/internal/validation"
 	"github.com/spf13/cobra"
+)
+
+var (
+	postImages []string
 )
 
 var postCmd = &cobra.Command{
@@ -18,18 +25,26 @@ var postCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text := validation.SanitizePostText(args[0])
 
-		// Validate post text
 		if err := validation.ValidatePostText(text); err != nil {
 			return err
 		}
 
-		// Check if logged in
+		// Validate images
+		if len(postImages) > media.MaxImagesPerPost {
+			return fmt.Errorf("too many images (max %d)", media.MaxImagesPerPost)
+		}
+
+		for _, imgPath := range postImages {
+			if err := media.ValidateImage(imgPath); err != nil {
+				return fmt.Errorf("invalid image %s: %w", imgPath, err)
+			}
+		}
+
 		username, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
 		}
 
-		// Get user ID
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.GetByUsername(username)
 		if err != nil {
@@ -41,6 +56,41 @@ var postCmd = &cobra.Command{
 		post, err := postStore.Create(user.ID, text)
 		if err != nil {
 			return err
+		}
+
+		// Process images
+		if len(postImages) > 0 {
+			mediaStore := store.NewMediaStore(DB)
+
+			for i, imgPath := range postImages {
+				// Copy image to media directory
+				destPath, fileName, err := media.CopyImageToMedia(imgPath, post.ID, i)
+				if err != nil {
+					fmt.Printf("Warning: failed to copy image %s: %v\n", imgPath, err)
+					continue
+				}
+
+				// Get image info
+				width, height, _ := media.GetImageDimensions(imgPath)
+				fileType, _ := media.GetFileType(imgPath)
+				fileInfo, _ := os.Stat(imgPath)
+
+				// Create media record
+				m := &models.Media{
+					PostID:   post.ID,
+					FilePath: destPath,
+					FileName: fileName,
+					FileType: fileType,
+					FileSize: fileInfo.Size(),
+					Width:    &width,
+					Height:   &height,
+					Position: i,
+				}
+
+				if err := mediaStore.Create(m); err != nil {
+					fmt.Printf("Warning: failed to save media record: %v\n", err)
+				}
+			}
 		}
 
 		// Extract and save hashtags
@@ -57,20 +107,17 @@ var postCmd = &cobra.Command{
 		if len(mentionUsernames) > 0 {
 			mentionStore := store.NewMentionStore(DB)
 
-			// Get user IDs for mentioned usernames
 			mentionedUserIDs, err := mentionStore.GetMentionedUsers(mentionUsernames)
 			if err != nil {
 				fmt.Printf("Warning: failed to process mentions: %v\n", err)
 			} else {
-				// Create mention records
 				if err := mentionStore.CreateMentions(post.ID, mentionedUserIDs); err != nil {
 					fmt.Printf("Warning: failed to save mentions: %v\n", err)
 				}
 
-				// Create notifications for mentioned users
+				// Create notifications
 				notifStore := store.NewNotificationStore(DB)
 				for _, mentionedUserID := range mentionedUserIDs {
-					// Don't notify yourself
 					if mentionedUserID != user.ID {
 						postID := post.ID
 						if err := notifStore.Create(mentionedUserID, user.ID, "mention", &postID); err != nil {
@@ -88,6 +135,9 @@ var postCmd = &cobra.Command{
 		}
 		if len(mentionUsernames) > 0 {
 			fmt.Printf("Mentions: %v\n", mentionUsernames)
+		}
+		if len(postImages) > 0 {
+			fmt.Printf("📷 %d image(s) attached\n", len(postImages))
 		}
 
 		return nil
@@ -116,8 +166,12 @@ var profileCmd = &cobra.Command{
 		}
 
 		// Display posts
-		output := display.FormatPosts(posts)
-		fmt.Println(output)
+		mediaStore := store.NewMediaStore(DB)
+		for _, pwa := range posts {
+			mediaCount, _ := mediaStore.GetMediaCount(pwa.Post.ID)
+			fmt.Println(display.FormatPostWithMedia(pwa, mediaCount))
+			fmt.Println()
+		}
 
 		return nil
 	},
@@ -130,17 +184,22 @@ var deletePostCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		postID := args[0]
 
-		// Check if logged in
 		username, err := config.GetCurrentUser()
 		if err != nil {
 			return fmt.Errorf("not logged in. Run: twt login <username>")
 		}
 
-		// Get user ID
 		userStore := store.NewUserStore(DB)
 		user, err := userStore.GetByUsername(username)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		// Get media before deleting post
+		mediaStore := store.NewMediaStore(DB)
+		mediaList, err := mediaStore.GetByPostID(postID)
+		if err != nil {
+			return err
 		}
 
 		// Delete post
@@ -149,7 +208,18 @@ var deletePostCmd = &cobra.Command{
 			return err
 		}
 
+		// Delete media files from disk
+		for _, m := range mediaList {
+			if err := media.DeleteMediaFile(m.FilePath); err != nil {
+				fmt.Printf("Warning: failed to delete media file: %v\n", err)
+			}
+		}
+
 		fmt.Println("Post deleted")
+		if len(mediaList) > 0 {
+			fmt.Printf("Deleted %d image(s)\n", len(mediaList))
+		}
+
 		return nil
 	},
 }
@@ -164,6 +234,7 @@ var showCmd = &cobra.Command{
 		postStore := store.NewPostStore(DB)
 		userStore := store.NewUserStore(DB)
 		socialStore := store.NewSocialStore(DB)
+		mediaStore := store.NewMediaStore(DB)
 
 		// Get post
 		post, err := postStore.GetByID(postID)
@@ -188,6 +259,12 @@ var showCmd = &cobra.Command{
 			return err
 		}
 
+		// Get media
+		mediaList, err := mediaStore.GetByPostID(postID)
+		if err != nil {
+			return err
+		}
+
 		// Create PostWithAuthor
 		pwa := store.PostWithAuthor{
 			Post:     *post,
@@ -196,6 +273,21 @@ var showCmd = &cobra.Command{
 
 		// Display with stats
 		fmt.Println(display.FormatPostWithStats(pwa, likeCount, retweetCount))
+
+		// Show media info
+		if len(mediaList) > 0 {
+			fmt.Printf("\n📷 %d image(s) attached:\n", len(mediaList))
+			for i, m := range mediaList {
+				sizeKB := m.FileSize / 1024
+				fmt.Printf("  %d. %s (%d KB", i+1, m.FileName, sizeKB)
+				if m.Width != nil && m.Height != nil {
+					fmt.Printf(", %dx%d", *m.Width, *m.Height)
+				}
+				fmt.Printf(")\n")
+			}
+			fmt.Printf("\nDownload: twt image download %s\n", postID)
+		}
+
 		return nil
 	},
 }
@@ -269,6 +361,8 @@ var searchCmd = &cobra.Command{
 }
 
 func init() {
+	// Add image flag
+	postCmd.Flags().StringArrayVar(&postImages, "image", []string{}, "Attach image(s) to post (can be used multiple times)")
 	rootCmd.AddCommand(postCmd)
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(deletePostCmd)

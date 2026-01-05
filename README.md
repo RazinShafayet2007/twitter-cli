@@ -16,6 +16,7 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 - ✅ Notifications (list, read, clear unread count)
 - ✅ Hashtags (search, trending)
 - ✅ User Mentions (parsing, notifications, list mentions)
+- ✅ Image Support (upload, view, open)
 
 ## Installation
 
@@ -151,6 +152,21 @@ twt show <post_id>
 
 # Delete your own post
 twt delete <post_id>
+```
+
+### Images
+```bash
+# Post with images (max 4)
+twt post "Check this out!" --image photo.jpg
+
+# Post with multiple images
+twt post "My vacation" --image beach.png --image sunset.jpg
+
+# Download images from a post
+twt image download <post_id>
+
+# Open image in default viewer
+twt image open <post_id> <image_index>
 ```
 
 ### Social
@@ -464,13 +480,14 @@ This project demonstrates:
 - ✅ **Notification system** (real-time user feedback)
 - ✅ **Hashtag support**
 - ✅ **User mentions**
+- ✅ **Image handling** (storage, metadata, CLI viewing)
+- ✅ **Automated Release Workflow** (Changesets, GitHub Actions)
 
 ## Limitations & Future Improvements
 
 Current limitations:
 
 - No comments/replies (threads)
-- No media uploads
 - Single-user local system (no server)
 
 Potential enhancements:
@@ -484,6 +501,17 @@ Potential enhancements:
 ## Contributing
 
 This is a learning project, but suggestions are welcome! Open an issue or PR.
+
+### Release Process
+
+This project uses [Changesets](https://github.com/changesets/changesets) for automated versioning and releases.
+
+1.  **Create a Branch**: `git checkout -b feat/my-feature`
+2.  **Make Changes**: Write your code.
+3.  **Add a Changeset**: Run `npx changeset` to create a changelog entry.
+4.  **Push & PR**: Open a Pull Request.
+5.  **Merge**: When merged to `main`, a "Version Packages" PR is created automatically.
+6.  **Release**: Merging the "Version Packages" PR tags the release on GitHub.
 
 ## License
 

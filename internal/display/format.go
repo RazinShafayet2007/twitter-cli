@@ -106,3 +106,28 @@ func FormatPostWithStats(pwa store.PostWithAuthor, likeCount, retweetCount int) 
 
 	return strings.Join(lines, "\n")
 }
+
+// Add this parameter to FormatPost
+func FormatPostWithMedia(pwa store.PostWithAuthor, mediaCount int) string {
+	timeAgo := FormatTimeAgo(pwa.Post.CreatedAt)
+
+	var lines []string
+
+	header := fmt.Sprintf("%s  @%s  %s", pwa.Post.ID, pwa.Username, timeAgo)
+
+	if pwa.Post.IsRetweet {
+		lines = append(lines, header)
+		lines = append(lines, "↻ Retweeted")
+		lines = append(lines, parser.HighlightText(pwa.Post.Text))
+	} else {
+		lines = append(lines, header)
+		lines = append(lines, parser.HighlightText(pwa.Post.Text))
+	}
+
+	// Add media indicator
+	if mediaCount > 0 {
+		lines = append(lines, fmt.Sprintf("📷 %d image(s)", mediaCount))
+	}
+
+	return strings.Join(lines, "\n")
+}

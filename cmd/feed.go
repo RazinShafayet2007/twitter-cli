@@ -49,8 +49,12 @@ var feedCmd = &cobra.Command{
 			return nil
 		}
 
-		output := display.FormatPosts(posts)
-		fmt.Println(output)
+		mediaStore := store.NewMediaStore(DB)
+		for _, pwa := range posts {
+			mediaCount, _ := mediaStore.GetMediaCount(pwa.Post.ID)
+			fmt.Println(display.FormatPostWithMedia(pwa, mediaCount))
+			fmt.Println()
+		}
 
 		// Show pagination info
 		if len(posts) == feedLimit {

@@ -1,6 +1,6 @@
 {
   "name": "twitter-cli",
-  "version": "0.0.1",
+  "version": "1.5.0",
   "private": true,
   "devDependencies": {
     "@changesets/cli": "^2.27.1"

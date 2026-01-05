@@ -12,9 +12,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check for changesets
-        uses: changesets/action@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          setupGitUser: false
-        env:
-          GITHUB_TOKEN: ${ secrets.GITHUB_TOKEN }
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Check for changesets
+        run: npx changeset status --since=origin/main

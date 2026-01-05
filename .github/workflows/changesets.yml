@@ -36,7 +36,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Update version.txt
-        if: steps.changesets.outputs.published == 'true'
+        # If we just merged a "Version Packages" PR, the changesets are consumed, 
+        # so hasChangesets is false. Use the result of the action to trigger this.
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
            # Extract version from package.json after publish
            node -p "require('./package.json').version" > version.txt

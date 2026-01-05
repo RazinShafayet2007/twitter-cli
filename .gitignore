@@ -20,3 +20,4 @@ vendor/
 
 # Config (contains current user session)
 .twitter-cli/
+node_modules/

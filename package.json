@@ -7,7 +7,6 @@
   },
   "scripts": {
     "changeset": "changeset",
-    "version": "changeset version && node -p \"require('./package.json').version\" > version.txt",
     "release": "changeset publish"
   }
 }

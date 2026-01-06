@@ -42,10 +42,41 @@ func (s *PostStore) Create(authorID, text string) (*models.Post, error) {
 	}, nil
 }
 
+// CreateReply creates a new reply to a post
+func (s *PostStore) CreateReply(authorID, text, parentPostID string) (*models.Post, error) {
+	// Verify parent exists
+	_, err := s.GetByID(parentPostID)
+	if err != nil {
+		return nil, fmt.Errorf("parent post not found: %w", err)
+	}
+
+	id := ulid.Make().String()
+	now := time.Now().Unix()
+
+	query := `
+		INSERT INTO posts (id, author_id, text, created_at, is_retweet, parent_post_id)
+		VALUES (?, ?, ?, ?, 0, ?)
+	`
+
+	_, err = s.db.Exec(query, id, authorID, text, now, parentPostID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reply: %w", err)
+	}
+
+	return &models.Post{
+		ID:           id,
+		AuthorID:     authorID,
+		Text:         text,
+		CreatedAt:    now,
+		IsRetweet:    false,
+		ParentPostID: &parentPostID,
+	}, nil
+}
+
 // GetByID retrieves a single post by ID
 func (s *PostStore) GetByID(postID string) (*models.Post, error) {
 	query := `
-		SELECT id, author_id, text, created_at, is_retweet, original_post_id
+		SELECT id, author_id, text, created_at, is_retweet, original_post_id, parent_post_id
 		FROM posts
 		WHERE id = ?
 	`
@@ -58,6 +89,7 @@ func (s *PostStore) GetByID(postID string) (*models.Post, error) {
 		&post.CreatedAt,
 		&post.IsRetweet,
 		&post.OriginalPostID,
+		&post.ParentPostID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -80,7 +112,7 @@ type PostWithAuthor struct {
 func (s *PostStore) GetByAuthorID(authorID string, limit int) ([]PostWithAuthor, error) {
 	query := `
 		SELECT 
-			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id,
+			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id, p.parent_post_id,
 			u.username
 		FROM posts p
 		JOIN users u ON p.author_id = u.id
@@ -105,6 +137,7 @@ func (s *PostStore) GetByAuthorID(authorID string, limit int) ([]PostWithAuthor,
 			&pwa.Post.CreatedAt,
 			&pwa.Post.IsRetweet,
 			&pwa.Post.OriginalPostID,
+			&pwa.Post.ParentPostID,
 			&pwa.Username,
 		)
 		if err != nil {
@@ -124,7 +157,7 @@ func (s *PostStore) GetByAuthorID(authorID string, limit int) ([]PostWithAuthor,
 func (s *PostStore) GetByUsername(username string, limit int) ([]PostWithAuthor, error) {
 	query := `
 		SELECT 
-			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id,
+			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id, p.parent_post_id,
 			u.username
 		FROM posts p
 		JOIN users u ON p.author_id = u.id
@@ -149,6 +182,7 @@ func (s *PostStore) GetByUsername(username string, limit int) ([]PostWithAuthor,
 			&pwa.Post.CreatedAt,
 			&pwa.Post.IsRetweet,
 			&pwa.Post.OriginalPostID,
+			&pwa.Post.ParentPostID,
 			&pwa.Username,
 		)
 		if err != nil {
@@ -203,6 +237,7 @@ func (s *PostStore) GetFeed(userID string, limit, offset int) ([]PostWithAuthor,
 			p.created_at, 
 			p.is_retweet, 
 			p.original_post_id,
+			p.parent_post_id,
 			u.username
 		FROM posts p
 		JOIN users u ON p.author_id = u.id
@@ -232,6 +267,7 @@ func (s *PostStore) GetFeed(userID string, limit, offset int) ([]PostWithAuthor,
 			&pwa.Post.CreatedAt,
 			&pwa.Post.IsRetweet,
 			&pwa.Post.OriginalPostID,
+			&pwa.Post.ParentPostID,
 			&pwa.Username,
 		)
 		if err != nil {
@@ -329,7 +365,7 @@ func (s *PostStore) GetRetweetCount(postID string) (int, error) {
 func (s *PostStore) Search(query string, limit int) ([]PostWithAuthor, error) {
 	sqlQuery := `
 		SELECT 
-			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id,
+			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id, p.parent_post_id,
 			u.username
 		FROM posts p
 		JOIN users u ON p.author_id = u.id
@@ -356,6 +392,72 @@ func (s *PostStore) Search(query string, limit int) ([]PostWithAuthor, error) {
 			&pwa.Post.CreatedAt,
 			&pwa.Post.IsRetweet,
 			&pwa.Post.OriginalPostID,
+			&pwa.Post.ParentPostID,
+			&pwa.Username,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan post: %w", err)
+		}
+		posts = append(posts, pwa)
+	}
+
+	return posts, nil
+}
+
+// GetThread retrieves the thread context for a post (ancestors + post + direct replies)
+func (s *PostStore) GetThread(postID string) ([]PostWithAuthor, error) {
+	// Reusable recursive CTE to get ancestors and children would be nice, but simple approach:
+	// 1. Get the requested post
+	// 2. Walk up to find ancestors (or use CTE)
+	// 3. Get direct children
+
+	// CTE for ancestors + self + children
+	query := `
+		WITH RECURSIVE ancestors AS (
+			SELECT id, author_id, text, created_at, is_retweet, original_post_id, parent_post_id, 0 as level
+			FROM posts
+			WHERE id = ?
+			
+			UNION ALL
+			
+			SELECT p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id, p.parent_post_id, a.level - 1
+			FROM posts p
+			JOIN ancestors a ON p.id = a.parent_post_id
+		),
+		children AS (
+			SELECT id, author_id, text, created_at, is_retweet, original_post_id, parent_post_id, 1 as level
+			FROM posts
+			WHERE parent_post_id = ?
+		)
+		SELECT 
+			p.id, p.author_id, p.text, p.created_at, p.is_retweet, p.original_post_id, p.parent_post_id,
+			u.username
+		FROM (
+			SELECT * FROM ancestors
+			UNION ALL
+			SELECT * FROM children
+		) p
+		JOIN users u ON p.author_id = u.id
+		ORDER BY p.level ASC, p.created_at ASC
+	`
+
+	rows, err := s.db.Query(query, postID, postID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query thread: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []PostWithAuthor
+	for rows.Next() {
+		var pwa PostWithAuthor
+		err := rows.Scan(
+			&pwa.Post.ID,
+			&pwa.Post.AuthorID,
+			&pwa.Post.Text,
+			&pwa.Post.CreatedAt,
+			&pwa.Post.IsRetweet,
+			&pwa.Post.OriginalPostID,
+			&pwa.Post.ParentPostID,
 			&pwa.Username,
 		)
 		if err != nil {

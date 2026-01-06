@@ -7,4 +7,5 @@ type Post struct {
 	CreatedAt      int64
 	IsRetweet      bool
 	OriginalPostID *string // pointer because it can be NULL
+	ParentPostID   *string // pointer because it can be NULL
 }

@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS posts (
     created_at INTEGER NOT NULL,
     is_retweet INTEGER DEFAULT 0,
     original_post_id TEXT,
+    parent_post_id TEXT,
     FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (original_post_id) REFERENCES posts(id) ON DELETE SET NULL
+    FOREIGN KEY (original_post_id) REFERENCES posts(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_post_id) REFERENCES posts(id) ON DELETE SET NULL
 );
 
 -- Follows table

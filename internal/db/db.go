@@ -57,7 +57,33 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to execute schema: %w", err)
 	}
 
+	// Run migrations
+	if err := runMigrations(db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return db, nil
+}
+
+// runMigrations handles database migrations
+func runMigrations(db *sql.DB) error {
+	// Check if parent_post_id column exists in posts table
+	var count int
+	query := `SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'parent_post_id'`
+	if err := db.QueryRow(query).Scan(&count); err != nil {
+		return fmt.Errorf("failed to check for parent_post_id column: %w", err)
+	}
+
+	if count == 0 {
+		// Add parent_post_id column
+		alterQuery := `ALTER TABLE posts ADD COLUMN parent_post_id TEXT REFERENCES posts(id) ON DELETE SET NULL`
+		if _, err := db.Exec(alterQuery); err != nil {
+			return fmt.Errorf("failed to add parent_post_id column: %w", err)
+		}
+		fmt.Println("Migrated database: added parent_post_id to posts table")
+	}
+
+	return nil
 }
 
 // executeSchema reads and executes the schema.sql file

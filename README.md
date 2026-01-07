@@ -17,6 +17,7 @@ A command-line Twitter clone built to learn backend system design, SQL, and Go.
 - ✅ Hashtags (search, trending)
 - ✅ User Mentions (parsing, notifications, list mentions)
 - ✅ Image Support (upload, view, open)
+- ✅ Replies and threads (create replies, view threads)
 
 ## Installation
 
@@ -152,6 +153,14 @@ twt show <post_id>
 
 # Delete your own post
 twt delete <post_id>
+```
+
+### Replies and Threads
+```bash
+# Reply to a post
+twt reply <post_id> "Great point!"
+# View entire conversation thread
+twt thread <post_id>
 ```
 
 ### Images
@@ -298,32 +307,79 @@ twt mentions
 
 ### Project Structure
 ```
-twitter-cli/
-├── cmd/                    # CLI commands
-│   ├── root.go            # Main CLI setup
-│   ├── user.go            # User commands
-│   ├── post.go            # Post commands
-│   ├── feed.go            # Feed command
-│   ├── social.go          # Social commands
-│   ├── message.go         # Direct messaging commands
-│   ├── block.go           # User blocking commands
-│   └── notifications.go   # Notifications commands
-├── internal/
-│   ├── db/                # Database setup
-│   ├── models/            # Data structures
-│   ├── store/             # Database operations
-│   ├── config/            # Configuration management
-│   ├── display/           # Output formatting
-│   ├── validation/        # Input validation
-│   └── errors/            # Custom error types
-├── scripts/                # Utility scripts (install, build, migrate)
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── README.md
+├── cmd
+│   ├── block.go
+│   ├── feed.go
+│   ├── hashtag.go
+│   ├── image.go
+│   ├── mentions.go
+│   ├── message.go
+│   ├── notifications.go
+│   ├── post.go
+│   ├── root.go
+│   ├── social.go
+│   └── user.go
+├── go.mod
+├── go.sum
+├── internal
+│   ├── config
+│   │   └── config.go
+│   ├── db
+│   │   ├── db.go
+│   │   └── schema.sql
+│   ├── display
+│   │   └── format.go
+│   ├── errors
+│   │   └── errors.go
+│   ├── media
+│   │   └── media.go
+│   ├── models
+│   │   ├── media.go
+│   │   ├── message.go
+│   │   ├── notification.go
+│   │   ├── post.go
+│   │   ├── social.go
+│   │   └── user.go
+│   ├── parser
+│   │   └── parser.go
+│   ├── store
+│   │   ├── hashtag_store.go
+│   │   ├── media_store.go
+│   │   ├── mention_store.go
+│   │   ├── message_store.go
+│   │   ├── notification_store.go
+│   │   ├── post_store.go
+│   │   ├── social_store.go
+│   │   ├── user_store.go
+│   │   └── user_store_test.go
+│   └── validation
+│       └── validation.go
+├── main.go                        # Entry point
+├── package.json
+├── scripts
+│   ├── build-release.sh 
 │   ├── install.sh
-│   ├── uninstall.sh
-│   ├── build-release.sh
-│   ├── migrate-messages.sh
 │   ├── migrate-blocks.sh
-│   └── migrate-notifications.sh
-└── main.go                # Entry point
+│   ├── migrate-hashtags-mentions.sh
+│   ├── migrate-media.sh
+│   ├── migrate-messages.sh
+│   ├── migrate-notifications.sh
+│   └── uninstall.sh
+├── test_scenario.sh
+├── version.txt
+├── .changeset
+│   ├── config.json
+│   └── wet-mammals-win.md
+├── .github
+│   └── workflows
+│       ├── changesets.yml
+│       ├── release.yml
+│       ├── require-changeset.yml
+│       └── tag-release.yml
+└── .gitignore                
 ```
 
 ## Database Schema
@@ -424,24 +480,6 @@ CREATE TABLE mentions (
     FOREIGN KEY (mentioned_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
-
-## Configuration
-
-Twitter CLI stores data in `~/.twitter-cli/`:
-
-```
-~/.twitter-cli/
-├── bin/          # Binary location
-├── data.db       # SQLite database
-└── config.json   # Current session
-```
-
-To use a different database:
-
-```bash
-twt --db /path/to/custom.db <command>
-```
-
 ## Development
 
 ### Running tests
@@ -481,6 +519,7 @@ This project demonstrates:
 - ✅ **Hashtag support**
 - ✅ **User mentions**
 - ✅ **Image handling** (storage, metadata, CLI viewing)
+- ✅ **Threads/replies implementation**
 - ✅ **Automated Release Workflow** (Changesets, GitHub Actions)
 
 ## Limitations & Future Improvements
@@ -492,7 +531,6 @@ Current limitations:
 
 Potential enhancements:
 
-- [ ] Threads/replies
 - [ ] Export data to JSON
 - [ ] Import from real Twitter
 - [ ] Web UI

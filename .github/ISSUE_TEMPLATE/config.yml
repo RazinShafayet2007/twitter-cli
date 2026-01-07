@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/RazinShafayet2007/twitter-cli/discussions
+    about: For questions, use Discussions instead.
